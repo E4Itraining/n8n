@@ -1,0 +1,122 @@
+{
+  "name": "Observabilit\u00e9 Donn\u00e9es - Fra\u00eecheur & Int\u00e9grit\u00e9",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": [
+          {
+            "hour": 0,
+            "minute": 0
+          }
+        ]
+      },
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    data: [\n      { lot_id: \"L001\", temperature: 72, timestamp: Date.now() - 1000 * 60 * 10 },\n      { lot_id: \"L002\", temperature: 69, timestamp: Date.now() - 1000 * 60 * 40 }\n    ]\n  }\n}];"
+      },
+      "name": "Mock Data Fetch",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const now = Date.now();\nconst seuil = 1000 * 60 * 30; // 30 minutes\nconst anomalies = [];\nfor (const item of items[0].json.data) {\n  if (now - item.timestamp > seuil) {\n    anomalies.push(item);\n  }\n}\nreturn anomalies.length > 0 ? [{ json: { status: \"KO\", anomalies } }] : [{ json: { status: \"OK\" } }];"
+      },
+      "name": "Check Freshness",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"status\"]}}",
+              "value2": "KO"
+            }
+          ]
+        }
+      },
+      "name": "IF Anomalie",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { message: \"Alerte : donn\u00e9es manquantes ou trop anciennes\", anomalies: $json.anomalies } }];"
+      },
+      "name": "Generate Alert",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { message: \"OK : donn\u00e9es fra\u00eeches et valides\" } }];"
+      },
+      "name": "Log OK",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          "Mock Data Fetch"
+        ]
+      ]
+    },
+    "Mock Data Fetch": {
+      "main": [
+        [
+          "Check Freshness"
+        ]
+      ]
+    },
+    "Check Freshness": {
+      "main": [
+        [
+          "IF Anomalie"
+        ]
+      ]
+    },
+    "IF Anomalie": {
+      "main": [
+        [
+          "Generate Alert"
+        ],
+        [
+          "Log OK"
+        ]
+      ]
+    }
+  }
+}

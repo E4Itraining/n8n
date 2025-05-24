@@ -1,0 +1,122 @@
+{
+  "name": "Surveillance Donn\u00e9es Industrielles - Fra\u00eecheur & Int\u00e9grit\u00e9",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": [
+          {
+            "hour": 0,
+            "minute": 0
+          }
+        ]
+      },
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    capteurs: [\n      { machine: \"Presse A1\", lot_id: \"LOT_001\", temperature: 205, timestamp: Date.now() - 1000 * 60 * 5 },\n      { machine: \"Four B3\", lot_id: \"LOT_002\", temperature: null, timestamp: Date.now() - 1000 * 60 * 45 }\n    ]\n  }\n}];"
+      },
+      "name": "Mock Data Fetch",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const now = Date.now();\nconst seuil = 1000 * 60 * 30; // 30 minutes\nconst anomalies = [];\nfor (const capteur of items[0].json.capteurs) {\n  if (!capteur.temperature || now - capteur.timestamp > seuil) {\n    anomalies.push(capteur);\n  }\n}\nreturn anomalies.length > 0 ? [{ json: { status: \"KO\", anomalies } }] : [{ json: { status: \"OK\" } }];"
+      },
+      "name": "Check Freshness",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json[\"status\"]}}",
+              "value2": "KO"
+            }
+          ]
+        }
+      },
+      "name": "IF Anomalie",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    message: \"Alerte : Anomalies d\u00e9tect\u00e9es dans les donn\u00e9es de production industrielle\",\n    anomalies: $json.anomalies\n  }\n}];"
+      },
+      "name": "Generate Alert",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  json: {\n    message: \"OK : donn\u00e9es de capteurs industrielles fra\u00eeches et valides\"\n  }\n}];"
+      },
+      "name": "Log OK",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          "Mock Data Fetch"
+        ]
+      ]
+    },
+    "Mock Data Fetch": {
+      "main": [
+        [
+          "Check Freshness"
+        ]
+      ]
+    },
+    "Check Freshness": {
+      "main": [
+        [
+          "IF Anomalie"
+        ]
+      ]
+    },
+    "IF Anomalie": {
+      "main": [
+        [
+          "Generate Alert"
+        ],
+        [
+          "Log OK"
+        ]
+      ]
+    }
+  }
+}
